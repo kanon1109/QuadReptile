@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+/bin-release/*
+/bin-debug/*
+/素材/*
+/doc/*
+/bin-debug
+/bin-release
