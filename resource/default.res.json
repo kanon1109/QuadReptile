@@ -1,9 +1,4 @@
 {
-	"groups": [
-		{
-			"keys": "",
-			"name": "preload"
-		}
-	],
+	"groups": [],
 	"resources": []
 }

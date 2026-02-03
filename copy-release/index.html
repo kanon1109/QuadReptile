@@ -1,0 +1,156 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>test</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="full-screen" content="true" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="x5-fullscreen" content="true" />
+    <meta name="360-fullscreen" content="true" />
+    <style>
+        /* 基础重置：全屏必备（不变） */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative; /* 所有绝对定位的基准 */
+        }
+        /* 保留你原有的webcam和output_canvas CSS样式！一个都没改 */
+        #webcam {
+            opacity: 0; /* 你原有的不透明，想半透改这里即可，比如0.2 */
+            width: 100%;
+            height: 100%;
+            transform: scale(-1, 1); /* 你原有的水平翻转视频 */
+            object-fit: cover; /* 新增：保证视频等比全屏，不拉伸（推荐保留） */
+        }
+        #output_canvas {
+            transform: scaleX(-1); /* 你原有的水平翻转画布 */
+            width: 100%;
+            height: 100%;
+        }
+        /* 摄像头容器：全屏绝对定位，底层（z-index:1） */
+        #liveView {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 核心：容器整体不接收鼠标事件 */
+            /*z-index: 1;*/
+        }
+        /* 视频/画布的父容器：全屏绝对定位，保证两者完全重叠 */
+        #liveView > div {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* 白鹭播放器：全屏绝对定位，表层（z-index:10），和摄像头重叠 */
+        .egret-player {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            margin: 0 !important; /* 覆盖原有margin:auto，绝对定位后无效 */
+        }
+    
+  </style>
+</head>
+<link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+<script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+<script src="./drawing_utils.js"></script>
+<script src="./hands.js"></script>
+
+<body>
+    <!-- 摄像头+画布区域：结构不变，仅补全video的必要属性 -->
+    <!-- 白鹭播放器：结构完全不变，样式由CSS的.egret-player控制 -->
+    <div class="egret-player" data-entry-class="Main" data-orientation="landscape" data-scale-mode="fixedHeight" data-frame-rate="60"
+         data-content-width="1440" data-content-height="900" data-show-paint-rect="false" data-multi-fingered="1" data-show-fps="false"
+         data-show-log="false" data-show-fps-style="x:0,y:0,size:12,textColor:0xffffff,bgAlpha:0.9">
+    </div>    
+    <div id="liveView" class="videoView">
+        <div>
+            <!-- video加pointer-events: none; 不挡事件 -->
+            <video id="webcam" style="position: absolute; left: 0; top: 0; pointer-events: none;" autoplay muted playsinline></video>
+            <!-- canvas加pointer-events: none; 关键！避免关键点图层挡事件 -->
+            <canvas class="output_canvas" id="output_canvas" style="position: absolute; left: 0; top: 0; pointer-events: none;"></canvas>
+        </div>
+        
+    </div>
+    <button id="webcamButton" class="mdc-button mdc-button--raised" style="opacity: 0">
+        <span class="mdc-button__ripple"></span>
+        <span class="mdc-button__label"></span>
+    </button>
+
+<script>
+    var loadScript = function (list, callback) {
+        var loaded = 0;
+        var loadNext = function () {
+            loadSingleScript(list[loaded], function () {
+                loaded++;
+                if (loaded >= list.length) {
+                    callback();
+                }
+                else {
+                    loadNext();
+                }
+            })
+        };
+        loadNext();
+    };
+
+    var loadSingleScript = function (src, callback) {
+        var s = document.createElement('script');
+        s.async = false;
+        s.src = src;
+        s.addEventListener('load', function () {
+            s.parentNode.removeChild(s);
+            s.removeEventListener('load', arguments.callee, false);
+            callback();
+        }, false);
+        document.body.appendChild(s);
+    };
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', './manifest.json?v=' + Math.random(), true);
+    xhr.addEventListener("load", function () {
+        var manifest = JSON.parse(xhr.response);
+        var list = manifest.initial.concat(manifest.game);
+        loadScript(list, function () {
+            /**
+             * {
+             * "renderMode":, //Engine rendering mode, "canvas" or "webgl"
+             * "audioType": 0 //Use the audio type, 0: default, 2: web audio, 3: audio
+             * "antialias": //Whether the anti-aliasing is enabled in WebGL mode, true: on, false: off, defaults to false
+             * "calculateCanvasScaleFactor": //a function return canvas scale factor
+             * }
+             **/
+            egret.runEgret({
+                renderMode: "webgl", audioType: 0, calculateCanvasScaleFactor: function (context) {
+                    var backingStore = context.backingStorePixelRatio ||
+                        context.webkitBackingStorePixelRatio ||
+                        context.mozBackingStorePixelRatio ||
+                        context.msBackingStorePixelRatio ||
+                        context.oBackingStorePixelRatio ||
+                        context.backingStorePixelRatio || 1;
+                    return (window.devicePixelRatio || 1) / backingStore;
+                }
+            });
+        });
+    });
+    xhr.send(null);
+</script>
+</body>
+<script type="module" src="./hand.js"></script>
+</html>

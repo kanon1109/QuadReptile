@@ -1,55 +1,65 @@
 class QuadReptile {
-	/** 左上肢体二阶关节角度偏移量（单位：弧度），控制左上腿关节摆动基础角度 */
+	// 左上肢体二阶关节角度偏移量（单位：弧度），控制左上腿关节摆动基础角度
 	private theta2OffsetUL: number;
-	/** 右上肢体二阶关节角度偏移量（单位：弧度），控制右上腿关节摆动基础角度 */
+	// 右上肢体二阶关节角度偏移量（单位：弧度），控制右上腿关节摆动基础角度
 	private theta2OffsetUR: number;
-	/** 左下肢体二阶关节角度偏移量（单位：弧度），控制左下腿关节摆动基础角度 */
+	// 左下肢体二阶关节角度偏移量（单位：弧度），控制左下腿关节摆动基础角度
 	private theta2OffsetDL: number;
-	/** 右下肢体二阶关节角度偏移量（单位：弧度），控制右下腿关节摆动基础角度 */
+	// 右下肢体二阶关节角度偏移量（单位：弧度），控制右下腿关节摆动基础角度
 	private theta2OffsetDR: number;
-	/** 四肢三阶关节角度偏移补偿量（单位：弧度），统一修正所有肢体末端关节摆动角度 */
+	// 四肢三阶关节角度偏移补偿量（单位：弧度），统一修正所有肢体末端关节摆动角度
 	private theta3Offset: number;
-	/** 主躯干节点的基础半径（躯干节点会基于此做缩放） */
+	// 主躯干节点的基础半径（躯干节点会基于此做缩放）
 	private _bodyRadius: number = 30;
 	// 关节角度偏移的符号因子（1=正向偏移，-1=反向偏移），控制摆动的增减方向
 	private jointOffsetSign: number = 1;
-	/** 关节摆动的频率速度（单位：弧度/帧），值越大四肢摆动的频率越快、幅度变化越明显 */
-	private jointSwingSpeed: number = 0;
-	//身体节数量
+	// 关节摆动的频率速度（单位：弧度/帧），值越大四肢摆动的频率越快、幅度变化越明显
+	private jointSwingSpeed: number = 10;
+	// 移动速度
+	private speed: number = 6;
+	// 最大移动速度
+	private maxSpeed: number = this.speed * 1.5;
+	// 最大临界速度
+	private maxDistance: number = 200;
+	// 关节摆动速度达最大的临界距离
+	private jointSwingMaxDist: number = 50;
+	// x的移动向量
+	private vx: number = 0;
+	// y的移动向量
+	private vy: number = 0;
+	// 目标点x
+	private targetX: number = 0;
+	// 目标点y
+	private targetY: number = 0;
+	// 身体节数量
 	private bodyCount: number = 10;
 	// 躯干半径衰减陡峭度（值越大后段缩小越快，推荐1~10）
 	private steepNessFactor: number = 3;
-	// 最大移动距离阈值
-	private moveDisMax: number = 3;
-	// 关节摆动速度缩放倍率
-    private swingSpeedScale: number = 8;
 	// 弧度转角度常量
-	private radToDeg: number = 180 / Math.PI;      
+	private radToDeg: number = 180 / Math.PI;
 	// 角度转弧度常量
 	private degToRad: number = Math.PI / 180;
-	//上肢第一关节长度
-	private joint1UpLen:number = 35; 
-	//上肢第二关节长度
-	private joint2UpLen:number = 25; 
-	//下肢第一关节长度
-	private joint1DownLen:number = 40; 
-	//下肢第二关节长度
-	private joint2DownLen:number = 30; 
-	//起始位置用于计算jointSwingSpeed
-	private startPt: egret.Point;
-	//身体数组
+	// 上肢第一关节长度
+	private joint1UpLen: number = 35;
+	// 上肢第二关节长度
+	private joint2UpLen: number = 25;
+	// 下肢第一关节长度
+	private joint1DownLen: number = 40;
+	// 下肢第二关节长度
+	private joint2DownLen: number = 30;
+	// 身体数组
 	private _bodyArr: egret.Point[];
-	/** 右上肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点 */
+	// 右上肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点
 	private _jointUpRArr: egret.Point[]
-	/** 左上肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点 */
+	// 左上肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点
 	private _jointUpLArr: egret.Point[]
-	/** 右下肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点 */
+	// 右下肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点
 	private _jointDownRArr: egret.Point[]
-	/** 左下肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点 */
+	// 左下肢体关节坐标数组：按[基座关节, 中间关节, 末端关节]顺序存储各关节的坐标点
 	private _jointDownLArr: egret.Point[]
+
 	public constructor(startX: number, startY: number) {
 		this._bodyArr = [];
-		this.startPt = new egret.Point(startX, startY);
 		// 遍历生成躯干节点（i显式类型number）
 		for (let i: number = 0; i < this.bodyCount; i++) {
 			// 初始化当前节点的基础坐标（按间距生成初始位置）
@@ -61,12 +71,12 @@ class QuadReptile {
 		this.theta2OffsetUR = 20 * this.degToRad;
 		this.theta2OffsetDL = -50 * this.degToRad;
 		this.theta2OffsetDR = -20 * this.degToRad;
-		//关节数组
+		// 关节数组
 		this._jointUpRArr = [];
 		this._jointUpLArr = [];
 		this._jointDownRArr = [];
 		this._jointDownLArr = [];
-		//初始化关节
+		// 初始化关节
 		for (let i: number = 1; i <= 3; i++) {
 			this._jointUpRArr.push(new egret.Point());
 			this._jointUpLArr.push(new egret.Point());
@@ -76,23 +86,43 @@ class QuadReptile {
 		this.update();
 	}
 
-	/**
-	 * 移动
-	 */
 	public move(x: number, y: number): void {
-		if (!this._bodyArr) return;
-		let headPt: egret.Point = this._bodyArr[0];
-		headPt.x = x;
-		headPt.y = y;
-		let dis: number = egret.Point.distance(headPt, this.startPt);
-		if (dis > this.moveDisMax) dis = this.moveDisMax;
-		this.jointSwingSpeed = (dis / this.moveDisMax) * this.swingSpeedScale * this.jointOffsetSign;
-		this.startPt.x = x;
-		this.startPt.y = y;
-		this.theta2OffsetUR += this.jointSwingSpeed * this.degToRad;
-		this.theta2OffsetUL -= this.jointSwingSpeed * this.degToRad;
-		this.theta2OffsetDL -= this.jointSwingSpeed * this.degToRad;
-		this.theta2OffsetDR += this.jointSwingSpeed * this.degToRad;
+		this.targetX = x;
+		this.targetY = y;
+	}
+
+	/**
+	 * 更新
+	 */
+	public update(): void {
+		this.updateMove();
+		this.updateBody();
+		this.updateJoints();
+	}
+
+	/**
+	 * 更新移动
+	 */
+	private updateMove(): void {
+		if (!this._bodyArr || this._bodyArr.length == 0) return;
+		let curX: number = this._bodyArr[0].x;
+		let curY: number = this._bodyArr[0].y;
+		let dis: number = Math.sqrt(Math.pow(curX - this.targetX, 2) + Math.pow(curY - this.targetY, 2));
+		let distanceRatio: number = Math.min(dis / this.maxDistance, 1);
+		let dynamicSpeed: number = this.speed + (this.maxSpeed - this.speed) * distanceRatio;
+		if (dis < dynamicSpeed) dynamicSpeed = dis;
+		let rad: number = Math.atan2(this.targetY - curY, this.targetX - curX);
+		this.vx = Math.cos(rad) * dynamicSpeed;
+		this.vy = Math.sin(rad) * dynamicSpeed;
+		this._bodyArr[0].x += this.vx;
+		this._bodyArr[0].y += this.vy;
+		// 关节摆动速度根据移动速度变化而变化
+		distanceRatio = Math.min(dis / this.jointSwingMaxDist, 1);
+		let jointSwingSpeed = this.jointSwingSpeed * distanceRatio * this.jointOffsetSign;
+		this.theta2OffsetUR += jointSwingSpeed * this.degToRad;
+		this.theta2OffsetUL -= jointSwingSpeed * this.degToRad;
+		this.theta2OffsetDL -= jointSwingSpeed * this.degToRad;
+		this.theta2OffsetDR += jointSwingSpeed * this.degToRad;
 		let angle: number = this.theta2OffsetUR * this.radToDeg;
 		if (angle < -90) this.jointOffsetSign = Math.abs(this.jointOffsetSign);
 		else if (angle > 60) this.theta2OffsetUR = -90 * this.degToRad;
@@ -105,18 +135,10 @@ class QuadReptile {
 	}
 
 	/**
-	 * 更新
-	 */
-	public update(): void {
-		this.updateBody();
-		this.updateJoints();
-	}
-
-	/**
 	 * 更新身体位置
 	 */
 	private updateBody(): void {
-		if (!this._bodyArr) return;
+		if (!this._bodyArr || this._bodyArr.length == 0) return;
 		let length: number = this._bodyArr.length;
 		let prePt: egret.Point; // 上一个躯干节点的坐标（首节点无前驱，初始null）
 		let prevR: number = 0; // 上一个躯干节点的实际半径（初始0，首节点会覆盖）
@@ -138,7 +160,7 @@ class QuadReptile {
 	 * 更新关节位置
 	 */
 	private updateJoints(): void {
-		if (!this._bodyArr) return;
+		if (!this._bodyArr || this._bodyArr.length == 0) return;
 		let prevPt: egret.Point = this._bodyArr[0];
 		let currPt: egret.Point = this._bodyArr[1];
 		this.updateJoint(this._jointUpRArr, currPt, prevPt, true, true);
@@ -298,9 +320,28 @@ class QuadReptile {
 		return this._bodyArr;
 	}
 
-	public get bodyRadius():number
-	{
+	public get bodyRadius(): number {
 		return this._bodyRadius;
+	}
+
+	public get x(): number {
+		if (!this._bodyArr || this._bodyArr.length == 0) return 0;
+		return this._bodyArr[0].x;
+	}
+
+	public get y(): number {
+		if (!this._bodyArr || this._bodyArr.length == 0) return 0;
+		return this._bodyArr[0].y;
+	}
+
+	public set x(value: number) {
+		if (!this._bodyArr || this._bodyArr.length == 0) return;
+		this._bodyArr[0].x = value;
+	}
+
+	public set y(value: number) {
+		if (!this._bodyArr || this._bodyArr.length == 0) return;
+		this._bodyArr[0].y = value;
 	}
 
 	public destroy(): void {
@@ -314,6 +355,5 @@ class QuadReptile {
 		this._jointDownRArr = null;
 		if (this._jointDownLArr) this._jointDownLArr.length = 0;
 		this._jointDownLArr = null;
-		this.startPt = null;
 	}
 }
